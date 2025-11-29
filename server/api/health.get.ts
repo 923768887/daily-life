@@ -1,4 +1,4 @@
-import { createClient } from '@libsql/client/http'
+import { createClient } from '@libsql/client/web'
 import { success, ResponseCode } from '~/server/utils/response'
 
 export default defineEventHandler(async () => {
