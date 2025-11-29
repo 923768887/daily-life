@@ -34,7 +34,7 @@ const handleLogout = () => {
       <div class="container flex items-center justify-between h-16 px-4">
         <NuxtLink to="/" class="flex items-center gap-2">
           <span class="text-2xl">💕</span>
-          <span class="font-bold text-xl love-gradient-text">LoveDay</span>
+          <span class="font-bold text-xl love-gradient-text">Lovory</span>
         </NuxtLink>
         
         <!-- 桌面端导航 -->

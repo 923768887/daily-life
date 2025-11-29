@@ -14,20 +14,30 @@ const searchQuery = ref('')
 const selectedMood = ref<string | null>(null)
 const page = ref(1)
 const diaries = ref<any[]>([])
+const loading = ref(true)
+const isSearching = ref(false)
 
 // 从 API 获取日记数据
-const fetchDiaries = async () => {
-  const { data } = await useAuthFetch<ApiResponse<PaginatedData<any>>>('/api/diary/page', {
-    method: 'POST',
-    body: {
-      page: page.value,
-      size: 20,
-      mood: selectedMood.value || undefined,
-      keyword: searchQuery.value || undefined,
-    },
-  })
-  if (data.value?.code === 0 && data.value?.data?.list) {
-    diaries.value = data.value.data.list
+const fetchDiaries = async (showLoading = true) => {
+  if (showLoading) loading.value = true
+  isSearching.value = true
+  
+  try {
+    const { data } = await useAuthFetch<ApiResponse<PaginatedData<any>>>('/api/diary/page', {
+      method: 'POST',
+      body: {
+        page: page.value,
+        size: 20,
+        mood: selectedMood.value || undefined,
+        keyword: searchQuery.value || undefined,
+      },
+    })
+    if (data.value?.code === 0 && data.value?.data?.list) {
+      diaries.value = data.value.data.list
+    }
+  } finally {
+    loading.value = false
+    isSearching.value = false
   }
 }
 
@@ -37,7 +47,7 @@ await fetchDiaries()
 // 监听筛选条件变化
 watch([selectedMood], () => {
   page.value = 1
-  fetchDiaries()
+  fetchDiaries(false)
 })
 
 // 搜索防抖
@@ -46,7 +56,7 @@ watch(searchQuery, () => {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
     page.value = 1
-    fetchDiaries()
+    fetchDiaries(false)
   }, 300)
 })
 
@@ -71,7 +81,7 @@ const handleLike = async (id: number) => {
 </script>
 
 <template>
-  <div class="space-y-6 animate-fade-in">
+  <div class="space-y-6">
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -79,7 +89,7 @@ const handleLike = async (id: number) => {
         我们的日记
       </h1>
       <NuxtLink to="/diary/new">
-        <Button variant="love">
+        <Button variant="love" class="gap-1">
           <Icon name="lucide:plus" class="w-4 h-4" />
           写日记
         </Button>
@@ -95,16 +105,20 @@ const handleLike = async (id: number) => {
           placeholder="搜索日记..."
           class="pl-10"
         />
+        <!-- 搜索加载指示器 -->
+        <div v-if="isSearching" class="absolute right-3 top-1/2 -translate-y-1/2">
+          <Icon name="lucide:loader-2" class="w-4 h-4 text-muted-foreground animate-spin" />
+        </div>
       </div>
       
       <!-- 心情筛选 -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-2">
+      <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
         <span class="text-sm text-muted-foreground shrink-0">心情:</span>
         <Badge 
           v-for="mood in moodOptions"
           :key="mood.value"
           :variant="selectedMood === mood.value ? 'love' : 'outline'"
-          class="cursor-pointer shrink-0"
+          class="cursor-pointer shrink-0 transition-all hover:scale-105"
           @click="toggleMoodFilter(mood.value)"
         >
           {{ mood.emoji }} {{ mood.label }}
@@ -112,26 +126,39 @@ const handleLike = async (id: number) => {
       </div>
     </div>
 
+    <!-- 加载骨架屏 -->
+    <div v-if="loading" class="space-y-4">
+      <CardSkeleton v-for="i in 3" :key="i" />
+    </div>
+
     <!-- 日记列表 -->
-    <div v-if="filteredDiaries.length" class="space-y-4">
+    <TransitionGroup 
+      v-else-if="filteredDiaries.length" 
+      name="slide-up" 
+      tag="div" 
+      class="space-y-4"
+    >
       <DiaryCard 
         v-for="diary in filteredDiaries" 
         :key="diary.id" 
         :diary="diary"
+        class="cursor-pointer hover:shadow-md transition-shadow"
         @click="handleDiaryClick(diary.id)"
         @like="handleLike(diary.id)"
       />
-    </div>
+    </TransitionGroup>
 
     <!-- 空状态 -->
-    <div v-else class="text-center py-12">
-      <div class="text-6xl mb-4">📝</div>
-      <p class="text-muted-foreground mb-4">
-        {{ searchQuery || selectedMood ? '没有找到匹配的日记' : '还没有日记，快来记录美好时光吧！' }}
-      </p>
-      <NuxtLink v-if="!searchQuery && !selectedMood" to="/diary/new">
-        <Button variant="love">写第一篇日记</Button>
-      </NuxtLink>
-    </div>
+    <Transition name="fade">
+      <div v-if="!loading && !filteredDiaries.length" class="text-center py-12">
+        <div class="text-6xl mb-4">📝</div>
+        <p class="text-muted-foreground mb-4">
+          {{ searchQuery || selectedMood ? '没有找到匹配的日记' : '还没有日记，快来记录美好时光吧！' }}
+        </p>
+        <NuxtLink v-if="!searchQuery && !selectedMood" to="/diary/new">
+          <Button variant="love">写第一篇日记</Button>
+        </NuxtLink>
+      </div>
+    </Transition>
   </div>
 </template>

@@ -13,7 +13,7 @@
     <div class="flex items-center justify-center pt-12 pb-6">
       <div class="flex flex-col items-center gap-2">
         <span class="text-5xl animate-heart-beat">💕</span>
-        <span class="font-bold text-3xl love-gradient-text">LoveDay</span>
+        <span class="font-bold text-3xl love-gradient-text">Lovory</span>
         <span class="text-muted-foreground text-sm">记录你们的美好时光</span>
       </div>
     </div>
@@ -25,7 +25,7 @@
 
     <!-- 底部 -->
     <footer class="py-4 text-center text-sm text-muted-foreground">
-      <p>© 2025 LoveDay. Made with ldh</p>
+      <p>© 2025 Lovory. Made with ldh</p>
     </footer>
   </div>
 </template>

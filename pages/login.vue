@@ -89,7 +89,7 @@ const handleLogin = async () => {
     <Card class="shadow-lg">
       <CardHeader class="text-center">
         <CardTitle class="text-xl">欢迎回来</CardTitle>
-        <CardDescription>登录你的 LoveDay 账号</CardDescription>
+        <CardDescription>登录你的 Lovory 账号</CardDescription>
       </CardHeader>
       <CardContent class="space-y-6">
         <!-- 登录方式切换 -->

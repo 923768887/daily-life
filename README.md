@@ -1,4 +1,4 @@
-# 💕 LoveDay - 情侣记忆管理应用
+# 💕 Lovory - 情侣记忆管理应用
 
 基于 Nuxt 3 的全栈情侣记忆管理应用，帮助情侣记录、分享和回顾美好时光。
 
@@ -126,4 +126,4 @@ MIT License
 
 ---
 
-Made with ❤️ by LoveDay Team
+Made with ❤️ by Lovory Team

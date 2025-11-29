@@ -54,7 +54,7 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // LoveDay 专属颜色
+        // Lovory 专属颜色
         love: {
           50: '#fff5f7',
           100: '#ffe4e9',

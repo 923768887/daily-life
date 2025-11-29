@@ -100,7 +100,7 @@ const handleRegister = async () => {
     <Card class="shadow-lg">
       <CardHeader class="text-center">
         <CardTitle class="text-xl">创建账号</CardTitle>
-        <CardDescription>加入 LoveDay，开始记录你们的美好时光</CardDescription>
+        <CardDescription>加入 Lovory，开始记录你们的美好时光</CardDescription>
       </CardHeader>
       <CardContent class="space-y-6">
         <!-- 错误提示 -->

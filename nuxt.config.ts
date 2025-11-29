@@ -40,16 +40,18 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'LoveDay - 情侣记忆管理',
+      title: 'Lovory - 情侣记忆管理',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'LoveDay - 记录你们的美好时光' },
+        { name: 'description', content: 'Lovory - 记录你们的美好时光' },
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
       ],
     },
+    pageTransition: { name: 'page', mode: 'out-in' },
+    layoutTransition: { name: 'layout', mode: 'out-in' },
   },
 
   routeRules: {
