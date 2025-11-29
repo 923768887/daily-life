@@ -1,5 +1,4 @@
-import { eq, or } from 'drizzle-orm'
-import { db, couples, users } from '~/server/database'
+import { db } from '~/server/database'
 import { success, error, ResponseCode } from '~/server/utils/response'
 import { getCurrentUserId } from '~/server/utils/auth'
 
@@ -11,17 +10,18 @@ export default defineEventHandler(async (event) => {
   }
 
   // 查找情侣关系
-  const couple = await db.query.couples.findFirst({
-    where: or(
-      eq(couples.userId, userId),
-      eq(couples.partnerId, userId)
-    ),
-  })
+  const coupleResult = await db.execute(
+    'SELECT * FROM couples WHERE user_id = ? OR partner_id = ? LIMIT 1',
+    [userId, userId]
+  )
+  const couple = coupleResult.rows[0] as any
 
   // 获取当前用户信息
-  const currentUser = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-  })
+  const currentUserResult = await db.execute(
+    'SELECT * FROM users WHERE id = ? LIMIT 1',
+    [userId]
+  )
+  const currentUser = currentUserResult.rows[0] as any
 
   // 未配对时返回基本信息
   if (!couple || couple.status !== 1) {
@@ -31,46 +31,48 @@ export default defineEventHandler(async (event) => {
       loveDays: 0,
       myInfo: {
         id: currentUser?.id,
-        nickName: currentUser?.nickName,
-        avatarUrl: currentUser?.avatarUrl,
+        nickName: currentUser?.nick_name,
+        avatarUrl: currentUser?.avatar_url,
       },
       partnerInfo: null,
     })
   }
 
   // 获取双方信息
-  const myId = couple.userId === userId ? couple.userId : couple.partnerId
-  const partnerId = couple.userId === userId ? couple.partnerId : couple.userId
+  const myId = couple.user_id === userId ? couple.user_id : couple.partner_id
+  const partnerId = couple.user_id === userId ? couple.partner_id : couple.user_id
 
-  const [myInfo, partnerInfo] = await Promise.all([
-    db.query.users.findFirst({ where: eq(users.id, myId!) }),
-    db.query.users.findFirst({ where: eq(users.id, partnerId!) }),
+  const [myInfoResult, partnerInfoResult] = await Promise.all([
+    db.execute('SELECT * FROM users WHERE id = ? LIMIT 1', [myId]),
+    db.execute('SELECT * FROM users WHERE id = ? LIMIT 1', [partnerId]),
   ])
+  const myInfo = myInfoResult.rows[0] as any
+  const partnerInfo = partnerInfoResult.rows[0] as any
 
   // 计算恋爱天数
-  const loveDays = couple.loveStartDate
-    ? Math.ceil((Date.now() - new Date(couple.loveStartDate).getTime()) / (1000 * 60 * 60 * 24))
-    : 1 // 至少显示1天
+  const loveDays = couple.love_start_date
+    ? Math.ceil((Date.now() - new Date(couple.love_start_date).getTime()) / (1000 * 60 * 60 * 24))
+    : 1
 
   return success({
     coupleId: couple.id,
-    loveStartDate: couple.loveStartDate,
+    loveStartDate: couple.love_start_date,
     loveDays,
-    relationshipType: couple.relationshipType,
-    coupleAvatar: couple.coupleAvatar,
+    relationshipType: couple.relationship_type,
+    coupleAvatar: couple.couple_avatar,
     signature: couple.signature,
     theme: couple.theme,
     myInfo: {
       id: myInfo?.id,
-      nickName: myInfo?.nickName,
-      coupleNickname: couple.userId === userId ? couple.coupleNickname1 : couple.coupleNickname2,
-      avatarUrl: myInfo?.avatarUrl,
+      nickName: myInfo?.nick_name,
+      coupleNickname: couple.user_id === userId ? couple.couple_nickname_1 : couple.couple_nickname_2,
+      avatarUrl: myInfo?.avatar_url,
     },
     partnerInfo: {
       id: partnerInfo?.id,
-      nickName: partnerInfo?.nickName,
-      coupleNickname: couple.userId === userId ? couple.coupleNickname2 : couple.coupleNickname1,
-      avatarUrl: partnerInfo?.avatarUrl,
+      nickName: partnerInfo?.nick_name,
+      coupleNickname: couple.user_id === userId ? couple.couple_nickname_2 : couple.couple_nickname_1,
+      avatarUrl: partnerInfo?.avatar_url,
     },
   })
 })

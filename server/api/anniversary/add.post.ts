@@ -1,5 +1,4 @@
-import { eq, or } from 'drizzle-orm'
-import { db, anniversaries, couples } from '~/server/database'
+import { db } from '~/server/database'
 import { success, error, ResponseCode, formatDateTime } from '~/server/utils/response'
 import { getCurrentUserId } from '~/server/utils/auth'
 
@@ -12,14 +11,11 @@ export default defineEventHandler(async (event) => {
     }
 
     // 获取用户的 coupleId
-    const couple = await db.query.couples.findFirst({
-      where: or(
-        eq(couples.userId, userId),
-        eq(couples.partnerId, userId)
-      ),
-    })
-    
-    const coupleId = couple?.id || 0
+    const coupleResult = await db.execute(
+      'SELECT * FROM couples WHERE user_id = ? OR partner_id = ? LIMIT 1',
+      [userId, userId]
+    )
+    const coupleId = (coupleResult.rows[0] as any)?.id || 0
 
     const body = await readBody(event)
     const {
@@ -40,24 +36,34 @@ export default defineEventHandler(async (event) => {
 
     const now = formatDateTime()
 
-    const result = await db.insert(anniversaries).values({
-      coupleId,
-      userId,
-      title,
-      description,
-      date,
-      type: type || 'custom',
-      icon: icon || '❤️',
-      color: color || '#FFE4E9',
-      images: images ? JSON.stringify(images) : null,
-      isRepeat: isRepeat !== false ? 1 : 0,
-      remindDays: remindDays ? JSON.stringify(remindDays) : '[1,7]',
-      createTime: now,
-      updateTime: now,
-    } as any).returning()
+    await db.execute(
+      `INSERT INTO anniversaries (couple_id, user_id, title, description, date, type, icon, color, images, is_repeat, remind_days, create_time, update_time) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        coupleId,
+        userId,
+        title,
+        description || null,
+        date,
+        type || 'custom',
+        icon || '❤️',
+        color || '#FFE4E9',
+        images ? JSON.stringify(images) : null,
+        isRepeat !== false ? 1 : 0,
+        remindDays ? JSON.stringify(remindDays) : '[1,7]',
+        now,
+        now,
+      ]
+    )
+
+    // 获取新插入的记录
+    const newResult = await db.execute(
+      'SELECT * FROM anniversaries WHERE couple_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1',
+      [coupleId, userId]
+    )
 
     return success({
-      id: result[0]?.id || Date.now(),
+      id: (newResult.rows[0] as any)?.id || Date.now(),
     })
   } catch (err: any) {
     console.error('添加纪念日失败:', err)

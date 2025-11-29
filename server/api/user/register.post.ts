@@ -1,5 +1,4 @@
-import { eq } from 'drizzle-orm'
-import { db, users } from '~/server/database'
+import { db } from '~/server/database'
 import { success, error, ResponseCode, formatDateTime } from '~/server/utils/response'
 
 export default defineEventHandler(async (event) => {
@@ -24,26 +23,29 @@ export default defineEventHandler(async (event) => {
   }
 
   // 检查手机号是否已注册
-  const existingUser = await db.query.users.findFirst({
-    where: eq(users.phone, phone),
-  })
+  const existingResult = await db.execute(
+    'SELECT * FROM users WHERE phone = ? LIMIT 1',
+    [phone]
+  )
 
-  if (existingUser) {
+  if (existingResult.rows.length > 0) {
     return error(ResponseCode.PARAM_ERROR, '该手机号已注册，请直接登录')
   }
 
   // 创建用户
   const now = formatDateTime()
-  const result = await db.insert(users).values({
-    phone,
-    nickName: nickName.trim(),
-    password: password || null,
-    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`,
-    createTime: now,
-    updateTime: now,
-  } as any).returning()
+  const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`
+  await db.execute(
+    'INSERT INTO users (phone, nick_name, password, avatar_url, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?)',
+    [phone, nickName.trim(), password || null, avatarUrl, now, now]
+  )
 
-  const user = result[0]
+  // 获取新用户
+  const userResult = await db.execute(
+    'SELECT * FROM users WHERE phone = ? LIMIT 1',
+    [phone]
+  )
+  const user = userResult.rows[0] as any
 
   // 生成 token
   const token = `token_${user.id}_${Date.now()}`
@@ -54,8 +56,8 @@ export default defineEventHandler(async (event) => {
     userInfo: {
       id: user.id,
       phone: user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2'),
-      nickName: user.nickName,
-      avatarUrl: user.avatarUrl,
+      nickName: user.nick_name,
+      avatarUrl: user.avatar_url,
       gender: user.gender,
       isPaired: false,
     },

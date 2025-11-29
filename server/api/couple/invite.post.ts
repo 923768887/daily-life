@@ -1,5 +1,4 @@
-import { eq, or } from 'drizzle-orm'
-import { db, couples, invites } from '~/server/database'
+import { db } from '~/server/database'
 import { success, error, ResponseCode, formatDateTime } from '~/server/utils/response'
 import { getCurrentUserId } from '~/server/utils/auth'
 
@@ -20,9 +19,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // 检查是否已配对
-  const existingCouple = await db.query.couples.findFirst({
-    where: eq(couples.userId, userId),
-  })
+  const existingResult = await db.execute(
+    'SELECT * FROM couples WHERE user_id = ? LIMIT 1',
+    [userId]
+  )
+  const existingCouple = existingResult.rows[0] as any
 
   if (existingCouple?.status === 1) {
     return error(ResponseCode.ALREADY_PAIRED, '您已经配对了')
@@ -36,25 +37,23 @@ export default defineEventHandler(async (event) => {
   if (existingCouple) {
     coupleId = existingCouple.id
   } else {
-    const result = await db.insert(couples).values({
-      userId,
-      status: 0,
-      createTime: now,
-      updateTime: now,
-    } as any).returning()
-    coupleId = result[0].id
+    await db.execute(
+      'INSERT INTO couples (user_id, status, create_time, update_time) VALUES (?, ?, ?, ?)',
+      [userId, 0, now, now]
+    )
+    const newCoupleResult = await db.execute(
+      'SELECT * FROM couples WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+      [userId]
+    )
+    coupleId = (newCoupleResult.rows[0] as any).id
   }
 
   // 生成邀请码
   const code = generateInviteCode()
-  await db.insert(invites).values({
-    coupleId,
-    userId,
-    code,
-    status: 0,
-    expireTime,
-    createTime: now,
-  } as any)
+  await db.execute(
+    'INSERT INTO invites (couple_id, user_id, code, status, expire_time, create_time) VALUES (?, ?, ?, ?, ?, ?)',
+    [coupleId, userId, code, 0, expireTime, now]
+  )
 
   return success({
     inviteCode: code,

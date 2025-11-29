@@ -1,5 +1,4 @@
-import { eq, asc, or } from 'drizzle-orm'
-import { db, anniversaries, couples } from '~/server/database'
+import { db } from '~/server/database'
 import { success, error, ResponseCode } from '~/server/utils/response'
 import { getCurrentUserId } from '~/server/utils/auth'
 
@@ -11,23 +10,21 @@ export default defineEventHandler(async (event) => {
   }
 
   // 获取用户的 coupleId
-  const couple = await db.query.couples.findFirst({
-    where: or(
-      eq(couples.userId, userId),
-      eq(couples.partnerId, userId)
-    ),
-  })
-  
-  const coupleId = couple?.id
+  const coupleResult = await db.execute(
+    'SELECT * FROM couples WHERE user_id = ? OR partner_id = ? LIMIT 1',
+    [userId, userId]
+  )
+  const coupleId = (coupleResult.rows[0] as any)?.id
   
   if (!coupleId) {
     return success({ list: [] })
   }
 
-  const list = await db.query.anniversaries.findMany({
-    where: eq(anniversaries.coupleId, coupleId),
-    orderBy: [asc(anniversaries.date)],
-  })
+  const listResult = await db.execute(
+    'SELECT * FROM anniversaries WHERE couple_id = ? ORDER BY date ASC',
+    [coupleId]
+  )
+  const list = listResult.rows as any[]
 
   const today = new Date()
   const result = list.map((ann) => {
