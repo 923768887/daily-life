@@ -1,28 +1,40 @@
-import { createClient } from '@libsql/client/web'
 import { success, ResponseCode } from '~/server/utils/response'
 
 export default defineEventHandler(async () => {
   const dbUrl = process.env.TURSO_DATABASE_URL || ''
+  const authToken = process.env.TURSO_AUTH_TOKEN || ''
+  
   const envCheck = {
     TURSO_DATABASE_URL: dbUrl ? `已配置 (${dbUrl.substring(0, 30)}...)` : '未配置',
-    TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN ? '已配置' : '未配置',
+    TURSO_AUTH_TOKEN: authToken ? '已配置' : '未配置',
   }
 
   try {
-    // 直接用 libsql 客户端测试连接
-    const client = createClient({
-      url: process.env.TURSO_DATABASE_URL!,
-      authToken: process.env.TURSO_AUTH_TOKEN,
+    // 直接用 fetch 调用 Turso HTTP API
+    const response = await fetch(dbUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        statements: [
+          { q: 'SELECT COUNT(*) as count FROM users' }
+        ]
+      }),
     })
+
+    const data = await response.json()
     
-    // 执行原生 SQL
-    const result = await client.execute('SELECT COUNT(*) as count FROM users')
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${JSON.stringify(data)}`)
+    }
     
     return success({
       status: 'ok',
       env: envCheck,
       dbConnection: '成功',
-      result: result.rows,
+      result: data,
     })
   } catch (err: any) {
     return {
@@ -32,7 +44,6 @@ export default defineEventHandler(async () => {
         env: envCheck,
         errorName: err.name,
         errorCode: err.code,
-        errorStack: err.stack?.substring(0, 500),
       }
     }
   }
