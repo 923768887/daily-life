@@ -1,104 +1,60 @@
 /**
- * Turso 数据库客户端
- * 使用纯 HTTP API，兼容 Edge Runtime（EdgeOne Pages）
+ * 基于原生 fetch 的 Turso HTTP 客户端
+ * 用于替代 @libsql/client，解决 EdgeOne Pages 兼容性问题
  */
 
-export interface DatabaseClient {
-  execute(sql: string, args?: any[]): Promise<{ rows: Record<string, any>[] }>
-  batch(statements: { sql: string; args?: any[] }[]): Promise<{ rows: Record<string, any>[] }[]>
+interface TursoResult {
+  columns: string[]
+  rows: any[][]
+  rows_read: number
+  rows_written: number
 }
 
-// 将参数转换为 Turso API 格式
-function formatValue(value: any): any {
-  if (value === null || value === undefined) {
-    return { type: 'null' }
-  }
-  if (typeof value === 'number') {
-    if (Number.isInteger(value)) {
-      return { type: 'integer', value: String(value) }
-    }
-    return { type: 'float', value }
-  }
-  if (typeof value === 'string') {
-    return { type: 'text', value }
-  }
-  if (typeof value === 'boolean') {
-    return { type: 'integer', value: value ? '1' : '0' }
-  }
-  if (value instanceof Uint8Array) {
-    return { type: 'blob', base64: btoa(String.fromCharCode(...value)) }
-  }
-  return { type: 'text', value: String(value) }
+interface TursoResponse {
+  results: TursoResult
 }
 
-// 解析 Turso 返回的值
-function parseValue(cell: any): any {
-  if (!cell || cell.type === 'null') return null
-  if (cell.type === 'integer') return parseInt(cell.value, 10)
-  if (cell.type === 'float') return parseFloat(cell.value)
-  if (cell.type === 'blob' && cell.base64) {
-    return Uint8Array.from(atob(cell.base64), c => c.charCodeAt(0))
+export class TursoClient {
+  private url: string
+  private authToken: string
+
+  constructor(config: { url: string; authToken?: string }) {
+    this.url = config.url
+    this.authToken = config.authToken || ''
   }
-  return cell.value
-}
 
-export function createTursoClient(config: { url: string; authToken?: string }): DatabaseClient {
-  // 构建 HTTP API URL
-  let apiUrl = config.url
-  if (apiUrl.startsWith('libsql://')) {
-    apiUrl = apiUrl.replace('libsql://', 'https://')
-  }
-  // 确保不以斜杠结尾，然后添加 pipeline 路径
-  apiUrl = apiUrl.replace(/\/$/, '')
-  
-  const authToken = config.authToken || ''
-
-  async function request(statements: { sql: string; args?: any[] }[]): Promise<any> {
-    const body = {
-      requests: [
-        ...statements.map(stmt => ({
-          type: 'execute',
-          stmt: {
-            sql: stmt.sql,
-            args: (stmt.args || []).map(formatValue)
-          }
-        })),
-        { type: 'close' }
-      ]
-    }
-
-    const response = await fetch(apiUrl, {
+  async execute(sql: string, args: any[] = []): Promise<{ rows: Record<string, any>[] }> {
+    const response = await fetch(this.url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${authToken}`,
+        'Authorization': `Bearer ${this.authToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        statements: [
+          { q: sql, params: args }
+        ]
+      }),
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Turso API error:', response.status, errorText)
-      throw new Error(`Turso error ${response.status}: ${errorText}`)
+      const error = await response.text()
+      throw new Error(`Turso HTTP error ${response.status}: ${error}`)
     }
 
-    return response.json()
-  }
+    const data: TursoResponse[] = await response.json()
 
-  function parseResult(result: any): { rows: Record<string, any>[] } {
-    if (!result?.response?.result) {
+    if (!data[0]?.results) {
       return { rows: [] }
     }
 
-    const { cols, rows } = result.response.result
-    if (!cols || !rows) {
-      return { rows: [] }
-    }
+    const { columns, rows } = data[0].results
 
-    const formattedRows = rows.map((row: any[]) => {
+    // 将数组格式转换为对象格式
+    const formattedRows = rows.map(row => {
       const obj: Record<string, any> = {}
-      cols.forEach((col: { name: string }, i: number) => {
-        obj[col.name] = parseValue(row[i])
+      columns.forEach((col, i) => {
+        obj[col] = row[i]
       })
       return obj
     })
@@ -106,15 +62,42 @@ export function createTursoClient(config: { url: string; authToken?: string }): 
     return { rows: formattedRows }
   }
 
-  return {
-    async execute(sql: string, args: any[] = []): Promise<{ rows: Record<string, any>[] }> {
-      const data = await request([{ sql, args }])
-      return parseResult(data.results?.[0])
-    },
+  async batch(statements: { sql: string; args?: any[] }[]): Promise<{ rows: Record<string, any>[] }[]> {
+    const response = await fetch(this.url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        statements: statements.map(s => ({ q: s.sql, params: s.args || [] }))
+      }),
+    })
 
-    async batch(statements: { sql: string; args?: any[] }[]): Promise<{ rows: Record<string, any>[] }[]> {
-      const data = await request(statements)
-      return statements.map((_, i) => parseResult(data.results?.[i]))
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Turso HTTP error ${response.status}: ${error}`)
     }
+
+    const data: TursoResponse[] = await response.json()
+
+    return data.map(item => {
+      if (!item.results) {
+        return { rows: [] }
+      }
+      const { columns, rows } = item.results
+      const formattedRows = rows.map(row => {
+        const obj: Record<string, any> = {}
+        columns.forEach((col, i) => {
+          obj[col] = row[i]
+        })
+        return obj
+      })
+      return { rows: formattedRows }
+    })
   }
+}
+
+export function createTursoClient(config: { url: string; authToken?: string }) {
+  return new TursoClient(config)
 }
