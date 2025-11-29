@@ -30,42 +30,82 @@ export class TursoClient implements DatabaseClient {
   private authToken: string
 
   constructor(config: { url: string; authToken?: string }) {
-    this.url = config.url
+    // 将 libsql:// 或 https:// URL 转换为 HTTP API 端点
+    let baseUrl = config.url
+      .replace('libsql://', 'https://')
+      .replace(/\/$/, '') // 移除末尾斜杠
+    
+    // Turso HTTP API 端点
+    this.url = `${baseUrl}/v2/pipeline`
     this.authToken = config.authToken || ''
+    
+    console.log('Turso API URL:', this.url)
+  }
+
+  private formatArgs(args: any[]): { type: string; value: any }[] {
+    return args.map(arg => {
+      if (arg === null || arg === undefined) {
+        return { type: 'null', value: null }
+      } else if (typeof arg === 'number') {
+        return Number.isInteger(arg) 
+          ? { type: 'integer', value: String(arg) }
+          : { type: 'float', value: arg }
+      } else if (typeof arg === 'string') {
+        return { type: 'text', value: arg }
+      } else if (typeof arg === 'boolean') {
+        return { type: 'integer', value: arg ? '1' : '0' }
+      } else {
+        return { type: 'text', value: String(arg) }
+      }
+    })
+  }
+
+  private parseValue(col: { type: string; value: any }): any {
+    if (col.type === 'null') return null
+    if (col.type === 'integer') return parseInt(col.value, 10)
+    if (col.type === 'float') return parseFloat(col.value)
+    return col.value
   }
 
   async execute(sql: string, args: any[] = []): Promise<{ rows: Record<string, any>[] }> {
+    const requestBody = {
+      requests: [
+        { type: 'execute', stmt: { sql, args: this.formatArgs(args) } },
+        { type: 'close' }
+      ]
+    }
+
     const response = await fetch(this.url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.authToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        statements: [
-          { q: sql, params: args }
-        ]
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
       const error = await response.text()
+      console.error('Turso request failed:', error)
       throw new Error(`Turso HTTP error ${response.status}: ${error}`)
     }
 
-    const data: TursoResponse[] = await response.json()
+    const data = await response.json()
     
-    if (!data[0]?.results) {
+    // v2 pipeline 响应格式
+    const result = data.results?.[0]
+    if (!result?.response?.result?.cols) {
       return { rows: [] }
     }
 
-    const { columns, rows } = data[0].results
+    const cols = result.response.result.cols
+    const rows = result.response.result.rows || []
     
     // 将数组格式转换为对象格式
-    const formattedRows = rows.map(row => {
+    const formattedRows = rows.map((row: any[]) => {
       const obj: Record<string, any> = {}
-      columns.forEach((col, i) => {
-        obj[col] = row[i]
+      cols.forEach((col: { name: string }, i: number) => {
+        obj[col.name] = this.parseValue(row[i])
       })
       return obj
     })
@@ -74,36 +114,48 @@ export class TursoClient implements DatabaseClient {
   }
 
   async batch(statements: { sql: string; args?: any[] }[]): Promise<{ rows: Record<string, any>[] }[]> {
+    const requests = [
+      ...statements.map(s => ({ 
+        type: 'execute', 
+        stmt: { sql: s.sql, args: this.formatArgs(s.args || []) } 
+      })),
+      { type: 'close' }
+    ]
+
     const response = await fetch(this.url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.authToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        statements: statements.map(s => ({ q: s.sql, params: s.args || [] }))
-      }),
+      body: JSON.stringify({ requests }),
     })
 
     if (!response.ok) {
       const error = await response.text()
+      console.error('Turso batch request failed:', error)
       throw new Error(`Turso HTTP error ${response.status}: ${error}`)
     }
 
-    const data: TursoResponse[] = await response.json()
+    const data = await response.json()
     
-    return data.map(item => {
-      if (!item.results) {
+    return statements.map((_, index) => {
+      const result = data.results?.[index]
+      if (!result?.response?.result?.cols) {
         return { rows: [] }
       }
-      const { columns, rows } = item.results
-      const formattedRows = rows.map(row => {
+      
+      const cols = result.response.result.cols
+      const rows = result.response.result.rows || []
+      
+      const formattedRows = rows.map((row: any[]) => {
         const obj: Record<string, any> = {}
-        columns.forEach((col, i) => {
-          obj[col] = row[i]
+        cols.forEach((col: { name: string }, i: number) => {
+          obj[col.name] = this.parseValue(row[i])
         })
         return obj
       })
+      
       return { rows: formattedRows }
     })
   }
