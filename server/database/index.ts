@@ -1,11 +1,13 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3'
-import Database from 'better-sqlite3'
-import { join } from 'path'
+import { drizzle } from 'drizzle-orm/libsql'
+import { createClient } from '@libsql/client'
 import * as schema from './schema'
 
-// 使用环境变量或默认路径
-const dbPath = process.env.DATABASE_PATH || join(process.cwd(), 'loveday.db')
-const sqlite = new Database(dbPath)
-export const db = drizzle(sqlite, { schema })
+// Turso 云数据库配置
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL || 'file:loveday.db',
+  authToken: process.env.TURSO_AUTH_TOKEN,
+})
+
+export const db = drizzle(client, { schema })
 
 export * from './schema'

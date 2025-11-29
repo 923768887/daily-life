@@ -14,12 +14,12 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.15",
     "@nuxt/icon": "^1.0.0",
     "@nuxtjs/color-mode": "^3.4.2",
     "@pinia/nuxt": "^0.5.4",
     "@vueuse/core": "^11.1.0",
     "@vueuse/nuxt": "^11.1.0",
-    "better-sqlite3": "^11.3.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -37,7 +37,6 @@
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.76",
     "@nuxtjs/tailwindcss": "6.12.1",
-    "@types/better-sqlite3": "^7.6.11",
     "autoprefixer": "^10.4.16",
     "drizzle-kit": "^0.31.7",
     "postcss": "^8.4.31",
