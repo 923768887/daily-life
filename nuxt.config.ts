@@ -62,9 +62,6 @@ export default defineNuxtConfig({
     '/schedule/**': { ssr: false },
     '/profile/**': { ssr: false },
     '/message/**': { ssr: false },
-    // 忽略开发工具请求
-    '/.well-known/**': { redirect: '/' },
-    '/_nuxt/**': { ssr: false },
   },
 
   runtimeConfig: {
