@@ -1,8 +1,7 @@
-import { db, users } from '~/server/database'
+import { createClient } from '@libsql/client/http'
 import { success, ResponseCode } from '~/server/utils/response'
 
 export default defineEventHandler(async () => {
-  // 显示更多环境变量信息用于调试
   const dbUrl = process.env.TURSO_DATABASE_URL || ''
   const envCheck = {
     TURSO_DATABASE_URL: dbUrl ? `已配置 (${dbUrl.substring(0, 30)}...)` : '未配置',
@@ -10,14 +9,20 @@ export default defineEventHandler(async () => {
   }
 
   try {
-    // 测试数据库连接 - 使用原生 SQL
-    const result = await db.select().from(users).limit(1)
+    // 直接用 libsql 客户端测试连接
+    const client = createClient({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    })
+    
+    // 执行原生 SQL
+    const result = await client.execute('SELECT COUNT(*) as count FROM users')
     
     return success({
       status: 'ok',
       env: envCheck,
       dbConnection: '成功',
-      userCount: result.length,
+      result: result.rows,
     })
   } catch (err: any) {
     return {
@@ -26,6 +31,7 @@ export default defineEventHandler(async () => {
       data: {
         env: envCheck,
         errorName: err.name,
+        errorCode: err.code,
         errorStack: err.stack?.substring(0, 500),
       }
     }
