@@ -3,17 +3,18 @@ import { db, users } from '~/server/database'
 import { success, error, ResponseCode, formatDateTime } from '~/server/utils/response'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-  const { phone, code, password, loginType = 0 } = body
+  try {
+    const body = await readBody(event)
+    const { phone, code, password, loginType = 0 } = body
 
-  if (!phone) {
-    return error(ResponseCode.PARAM_ERROR, '请输入手机号')
-  }
+    if (!phone) {
+      return error(ResponseCode.PARAM_ERROR, '请输入手机号')
+    }
 
-  // 查找用户
-  let user = await db.query.users.findFirst({
-    where: eq(users.phone, phone),
-  })
+    // 查找用户
+    let user = await db.query.users.findFirst({
+      where: eq(users.phone, phone),
+    })
 
   // 验证码登录 - 自动注册
   if (loginType === 0) {
@@ -59,4 +60,8 @@ export default defineEventHandler(async (event) => {
       isPaired: false, // TODO: 查询配对状态
     },
   })
+  } catch (err: any) {
+    console.error('登录错误:', err)
+    return error(ResponseCode.SERVER_ERROR, `服务器错误: ${err.message}`)
+  }
 })
