@@ -6,9 +6,11 @@ import { useUserStore } from '~/stores/user'
 
 definePageMeta({
   layout: 'auth',
+  middleware: 'auth',
 })
 
 const userStore = useUserStore()
+const router = useRouter()
 
 const phone = ref('')
 const code = ref('')
@@ -83,7 +85,7 @@ const handleRegister = async () => {
       // 注册成功，自动登录
       userStore.setToken(response.data.token)
       userStore.setUserInfo(response.data.userInfo)
-      window.location.href = '/couple/pair'
+      await router.replace('/couple/pair')
     } else {
       errorMsg.value = response?.message || '注册失败'
     }

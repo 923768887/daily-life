@@ -2,10 +2,12 @@ import { createTursoClient, createLocalClient, type DatabaseClient } from './tur
 export * from './schema'
 
 // 根据环境选择数据库客户端
+// 设置 USE_LOCAL_DB=true 强制使用本地数据库
 function createDbClient(): DatabaseClient {
   const tursoUrl = process.env.TURSO_DATABASE_URL
+  const useLocalDb = process.env.USE_LOCAL_DB === 'true'
   
-  if (tursoUrl) {
+  if (tursoUrl && !useLocalDb) {
     // 使用 Turso 云数据库
     console.log('Using Turso cloud database')
     return createTursoClient({

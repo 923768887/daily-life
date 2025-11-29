@@ -131,91 +131,208 @@ export class LocalSqliteClient implements DatabaseClient {
   private ensureInitialized() {
     if (this.initialized) return
     
-    // 创建表结构
+    // 创建表结构 - 与 Drizzle schema 保持一致
     this.db.exec(`
+      -- 用户表
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         phone TEXT UNIQUE NOT NULL,
         password TEXT,
-        nick_name TEXT,
+        nick_name TEXT NOT NULL,
         avatar_url TEXT,
         gender INTEGER DEFAULT 0,
         birthday TEXT,
-        couple_id INTEGER,
-        create_time TEXT,
-        update_time TEXT
+        constellation TEXT,
+        hobby TEXT,
+        create_time TEXT NOT NULL,
+        update_time TEXT NOT NULL
       );
 
+      -- 情侣关系表
       CREATE TABLE IF NOT EXISTS couples (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user1_id INTEGER NOT NULL,
-        user2_id INTEGER NOT NULL,
-        anniversary TEXT,
-        status INTEGER DEFAULT 1,
-        create_time TEXT,
-        update_time TEXT
+        user_id INTEGER NOT NULL,
+        partner_id INTEGER,
+        status INTEGER DEFAULT 0,
+        love_start_date TEXT,
+        relationship_type INTEGER DEFAULT 0,
+        couple_nickname_1 TEXT,
+        couple_nickname_2 TEXT,
+        couple_avatar TEXT,
+        signature TEXT,
+        theme TEXT DEFAULT 'romantic-pink',
+        create_time TEXT NOT NULL,
+        update_time TEXT NOT NULL
       );
 
+      -- 邀请码表
       CREATE TABLE IF NOT EXISTS invites (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        couple_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
         code TEXT UNIQUE NOT NULL,
-        inviter_id INTEGER NOT NULL,
-        invitee_id INTEGER,
         status INTEGER DEFAULT 0,
-        expire_time TEXT,
-        create_time TEXT
+        expire_time TEXT NOT NULL,
+        create_time TEXT NOT NULL
       );
 
+      -- 日记表
       CREATE TABLE IF NOT EXISTS diaries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        couple_id INTEGER NOT NULL,
-        author_id INTEGER NOT NULL,
+        couple_id INTEGER,
+        user_id INTEGER NOT NULL,
         title TEXT,
-        content TEXT,
-        mood INTEGER,
+        content TEXT NOT NULL,
+        mood TEXT,
         weather TEXT,
         location TEXT,
+        latitude REAL,
+        longitude REAL,
         images TEXT,
+        videos TEXT,
         is_private INTEGER DEFAULT 0,
-        create_time TEXT,
-        update_time TEXT
+        like_count INTEGER DEFAULT 0,
+        comment_count INTEGER DEFAULT 0,
+        diary_date TEXT NOT NULL,
+        create_time TEXT NOT NULL,
+        update_time TEXT NOT NULL
       );
 
-      CREATE TABLE IF NOT EXISTS anniversaries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        couple_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        date TEXT NOT NULL,
-        type INTEGER DEFAULT 0,
-        remind INTEGER DEFAULT 1,
-        remind_days INTEGER DEFAULT 1,
-        note TEXT,
-        create_time TEXT,
-        update_time TEXT
-      );
-
+      -- 相册表
       CREATE TABLE IF NOT EXISTS albums (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         couple_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
         name TEXT NOT NULL,
-        cover_url TEXT,
         description TEXT,
+        cover_url TEXT,
         photo_count INTEGER DEFAULT 0,
-        create_time TEXT,
-        update_time TEXT
+        create_time TEXT NOT NULL,
+        update_time TEXT NOT NULL
       );
 
+      -- 照片表
       CREATE TABLE IF NOT EXISTS photos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         album_id INTEGER NOT NULL,
         couple_id INTEGER NOT NULL,
-        uploader_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
         url TEXT NOT NULL,
         thumbnail_url TEXT,
+        width INTEGER,
+        height INTEGER,
         description TEXT,
-        taken_at TEXT,
         location TEXT,
-        create_time TEXT
+        latitude REAL,
+        longitude REAL,
+        taken_at TEXT,
+        like_count INTEGER DEFAULT 0,
+        create_time TEXT NOT NULL
+      );
+
+      -- 纪念日表
+      CREATE TABLE IF NOT EXISTS anniversaries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        couple_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        date TEXT NOT NULL,
+        type TEXT DEFAULT 'custom',
+        icon TEXT DEFAULT '❤️',
+        color TEXT DEFAULT '#FFE4E9',
+        images TEXT,
+        is_repeat INTEGER DEFAULT 1,
+        remind_days TEXT DEFAULT '[1,7]',
+        is_active INTEGER DEFAULT 1,
+        create_time TEXT NOT NULL,
+        update_time TEXT NOT NULL
+      );
+
+      -- 日程表
+      CREATE TABLE IF NOT EXISTS schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        couple_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT DEFAULT 'other',
+        start_time TEXT NOT NULL,
+        end_time TEXT,
+        is_all_day INTEGER DEFAULT 0,
+        location TEXT,
+        latitude REAL,
+        longitude REAL,
+        repeat_type TEXT DEFAULT 'none',
+        color TEXT DEFAULT '#FF6B9D',
+        status INTEGER DEFAULT 0,
+        create_time TEXT NOT NULL,
+        update_time TEXT NOT NULL
+      );
+
+      -- 每日任务表
+      CREATE TABLE IF NOT EXISTS daily_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        couple_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        task_date TEXT NOT NULL,
+        check_in INTEGER DEFAULT 0,
+        check_in_time TEXT,
+        good_morning INTEGER DEFAULT 0,
+        good_morning_time TEXT,
+        good_night INTEGER DEFAULT 0,
+        good_night_time TEXT,
+        mood TEXT,
+        points INTEGER DEFAULT 0,
+        create_time TEXT NOT NULL,
+        update_time TEXT NOT NULL
+      );
+
+      -- 消息表
+      CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        couple_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        type TEXT DEFAULT 'text',
+        content TEXT,
+        media_url TEXT,
+        special_type TEXT,
+        is_read INTEGER DEFAULT 0,
+        read_time TEXT,
+        create_time TEXT NOT NULL
+      );
+
+      -- 点赞表
+      CREATE TABLE IF NOT EXISTS likes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        create_time TEXT NOT NULL
+      );
+
+      -- 评论表
+      CREATE TABLE IF NOT EXISTS comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        couple_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        parent_id INTEGER,
+        create_time TEXT NOT NULL
+      );
+
+      -- 情话表
+      CREATE TABLE IF NOT EXISTS love_quotes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content TEXT NOT NULL,
+        author TEXT,
+        source TEXT,
+        category TEXT,
+        is_system INTEGER DEFAULT 1,
+        create_time TEXT NOT NULL
       );
     `)
     

@@ -6,9 +6,18 @@ import { useUserStore } from '~/stores/user'
 
 definePageMeta({
   layout: 'auth',
+  middleware: 'auth',
 })
 
 const userStore = useUserStore()
+const route = useRoute()
+const router = useRouter()
+
+// 获取登录后的跳转地址
+const redirectPath = computed(() => {
+  const redirect = route.query.redirect as string
+  return redirect || '/'
+})
 
 const loginType = ref<'code' | 'password'>('code')
 const phone = ref('')
@@ -69,9 +78,9 @@ const handleLogin = async () => {
     console.log('登录结果:', result)
     
     if (result.success) {
-      console.log('登录成功，准备跳转...')
-      // 登录成功，跳转到首页
-      window.location.href = '/'
+      console.log('登录成功，准备跳转到:', redirectPath.value)
+      // 登录成功，跳转到目标页面
+      await router.replace(redirectPath.value)
     } else {
       errorMsg.value = result.message || '登录失败'
     }

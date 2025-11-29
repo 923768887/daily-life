@@ -9,12 +9,26 @@ export default defineEventHandler(async (event) => {
     return error(ResponseCode.UNAUTHORIZED, '请先登录')
   }
 
-  // 获取用户的 coupleId
-  const coupleResult = await db.execute(
-    'SELECT * FROM couples WHERE user_id = ? OR partner_id = ? LIMIT 1',
-    [userId, userId]
+  const id = getRouterParam(event, 'id')
+  
+  if (!id) {
+    return error(ResponseCode.PARAM_ERROR, '缺少日记ID')
+  }
+
+  // 检查日记是否存在且属于当前用户
+  const diaryResult = await db.execute(
+    'SELECT * FROM diaries WHERE id = ? LIMIT 1',
+    [id]
   )
-  const coupleId = (coupleResult.rows[0] as any)?.id || null
+  const diary = diaryResult.rows[0] as any
+
+  if (!diary) {
+    return error(ResponseCode.NOT_FOUND, '日记不存在')
+  }
+
+  if (diary.user_id !== userId) {
+    return error(ResponseCode.FORBIDDEN, '只能编辑自己的日记')
+  }
 
   const body = await readBody(event)
   const {
@@ -37,11 +51,20 @@ export default defineEventHandler(async (event) => {
   const now = formatDateTime()
 
   await db.execute(
-    `INSERT INTO diaries (couple_id, user_id, title, content, mood, weather, location, latitude, longitude, images, is_private, diary_date, create_time, update_time) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `UPDATE diaries SET 
+      title = ?, 
+      content = ?, 
+      mood = ?, 
+      weather = ?, 
+      location = ?, 
+      latitude = ?, 
+      longitude = ?, 
+      images = ?, 
+      is_private = ?, 
+      diary_date = ?,
+      update_time = ?
+     WHERE id = ?`,
     [
-      coupleId,
-      userId,
       title || null,
       content,
       mood || null,
@@ -51,19 +74,11 @@ export default defineEventHandler(async (event) => {
       longitude || null,
       images ? JSON.stringify(images) : null,
       isPrivate ? 1 : 0,
-      diaryDate || now.split(' ')[0],
+      diaryDate || diary.diary_date,
       now,
-      now,
+      id,
     ]
   )
 
-  // 获取新插入的记录
-  const newResult = await db.execute(
-    'SELECT * FROM diaries WHERE user_id = ? ORDER BY id DESC LIMIT 1',
-    [userId]
-  )
-
-  return success({
-    id: (newResult.rows[0] as any).id,
-  })
+  return success({ id: Number(id) })
 })

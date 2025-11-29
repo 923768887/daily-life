@@ -10,7 +10,10 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:push:prod": "drizzle-kit push --config=drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
+import { Card, CardContent } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Textarea } from '~/components/ui/textarea'
 import { moodOptions, weatherOptions, formatDate } from '~/lib/utils'
+import type { ApiResponse } from '~/server/utils/response'
 
 definePageMeta({
   middleware: 'auth',
 })
 
+const route = useRoute()
 const router = useRouter()
+const diaryId = computed(() => route.params.id as string)
+
+const loading = ref(true)
+const isSubmitting = ref(false)
+const isUploading = ref(false)
+const error = ref('')
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const form = ref({
   title: '',
@@ -18,13 +27,48 @@ const form = ref({
   weather: '',
   location: '',
   isPrivate: false,
-  diaryDate: formatDate(new Date(), 'YYYY-MM-DD'),
+  diaryDate: '',
   images: [] as string[],
 })
 
-const isSubmitting = ref(false)
-const isUploading = ref(false)
-const fileInputRef = ref<HTMLInputElement | null>(null)
+// 获取日记详情
+const fetchDiary = async () => {
+  loading.value = true
+  error.value = ''
+  
+  try {
+    const { data } = await useAuthFetch<ApiResponse<any>>(`/api/diary/${diaryId.value}`)
+    
+    if (data.value?.code === 0) {
+      const diary = data.value.data
+      
+      // 检查是否是作者
+      if (!diary.isOwner) {
+        error.value = '只能编辑自己的日记'
+        return
+      }
+      
+      form.value = {
+        title: diary.title || '',
+        content: diary.content || '',
+        mood: diary.mood || '',
+        weather: diary.weather || '',
+        location: diary.location || '',
+        isPrivate: diary.isPrivate || false,
+        diaryDate: diary.diaryDate || formatDate(new Date(), 'YYYY-MM-DD'),
+        images: diary.images || [],
+      }
+    } else {
+      error.value = data.value?.message || '加载失败'
+    }
+  } catch (e: any) {
+    error.value = e.message || '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+await fetchDiary()
 
 const handleSubmit = async () => {
   if (!form.value.content.trim()) {
@@ -35,8 +79,8 @@ const handleSubmit = async () => {
   isSubmitting.value = true
   
   try {
-    const response = await authFetch<any>('/api/diary/add', {
-      method: 'POST',
+    const response = await authFetch<ApiResponse<any>>(`/api/diary/${diaryId.value}`, {
+      method: 'PUT',
       body: {
         title: form.value.title,
         content: form.value.content,
@@ -50,13 +94,13 @@ const handleSubmit = async () => {
     })
     
     if (response?.code === 0) {
-      router.push('/diary')
+      router.replace(`/diary/${diaryId.value}`)
     } else {
       alert(response?.message || '保存失败')
     }
-  } catch (error) {
-    console.error('保存失败:', error)
-    alert('保存失败，请重试')
+  } catch (e: any) {
+    console.error('保存失败:', e)
+    alert(e.message || '保存失败，请重试')
   } finally {
     isSubmitting.value = false
   }
@@ -72,7 +116,6 @@ const onFileChange = async (e: Event) => {
   
   if (!files || files.length === 0) return
   
-  // 检查数量限制
   if (form.value.images.length + files.length > 9) {
     alert('最多只能上传9张图片')
     return
@@ -101,7 +144,6 @@ const onFileChange = async (e: Event) => {
     alert('上传失败，请重试')
   } finally {
     isUploading.value = false
-    // 清空 input 以便重复选择同一文件
     input.value = ''
   }
 }
@@ -112,16 +154,31 @@ const removeImage = (index: number) => {
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto space-y-6 animate-fade-in">
+  <div class="max-w-2xl mx-auto space-y-6">
     <!-- 页面标题 -->
     <div class="flex items-center gap-4">
       <Button variant="ghost" size="icon" @click="router.back()">
         <Icon name="lucide:arrow-left" class="w-5 h-5" />
       </Button>
-      <h1 class="text-xl font-bold text-foreground">写日记</h1>
+      <h1 class="text-xl font-bold text-foreground">编辑日记</h1>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="space-y-6">
+    <!-- 加载状态 -->
+    <div v-if="loading" class="space-y-4">
+      <div class="skeleton h-12 rounded-lg" />
+      <div class="skeleton h-12 rounded-lg" />
+      <div class="skeleton h-40 rounded-lg" />
+    </div>
+
+    <!-- 错误状态 -->
+    <Card v-else-if="error" class="p-8 text-center">
+      <Icon name="lucide:alert-circle" class="w-12 h-12 text-destructive/60 mx-auto mb-4" />
+      <p class="text-muted-foreground mb-4">{{ error }}</p>
+      <Button variant="outline" @click="router.back()">返回</Button>
+    </Card>
+
+    <!-- 编辑表单 -->
+    <form v-else @submit.prevent="handleSubmit" class="space-y-6">
       <!-- 日期选择 -->
       <div>
         <label class="text-sm font-medium text-foreground mb-2 block">日期</label>
@@ -205,8 +262,7 @@ const removeImage = (index: number) => {
 
       <!-- 图片上传 -->
       <div>
-        <label class="text-sm font-medium text-foreground mb-2 block">添加图片</label>
-        <!-- 隐藏的文件输入 -->
+        <label class="text-sm font-medium text-foreground mb-2 block">图片</label>
         <input 
           ref="fileInputRef"
           type="file"
@@ -277,7 +333,7 @@ const removeImage = (index: number) => {
           :disabled="isSubmitting"
         >
           <Icon v-if="isSubmitting" name="lucide:loader-2" class="w-4 h-4 animate-spin" />
-          {{ isSubmitting ? '保存中...' : '发布日记' }}
+          {{ isSubmitting ? '保存中...' : '保存修改' }}
         </Button>
       </div>
     </form>

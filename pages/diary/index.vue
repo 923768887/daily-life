@@ -71,11 +71,21 @@ const handleDiaryClick = (id: number) => {
 }
 
 const handleLike = async (id: number) => {
-  // TODO: 调用点赞 API
   const diary = diaries.value.find(d => d.id === id)
-  if (diary) {
-    diary.isLiked = !diary.isLiked
-    diary.likeCount += diary.isLiked ? 1 : -1
+  if (!diary) return
+  
+  try {
+    const response = await authFetch<any>('/api/diary/like', {
+      method: 'POST',
+      body: { diaryId: id },
+    })
+    
+    if (response?.code === 0) {
+      diary.isLiked = response.data.isLiked
+      diary.likeCount = response.data.likeCount
+    }
+  } catch (e) {
+    console.error('点赞失败:', e)
   }
 }
 </script>
