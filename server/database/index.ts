@@ -1,27 +1,16 @@
-import { createTursoClient, createLocalClient, type DatabaseClient } from './turso-client'
+import { createTursoClient } from './turso-client'
 export * from './schema'
 
-// 根据环境选择数据库客户端
-// 设置 USE_LOCAL_DB=true 强制使用本地数据库
-function createDbClient(): DatabaseClient {
-  const tursoUrl = process.env.TURSO_DATABASE_URL
-  const useLocalDb = process.env.USE_LOCAL_DB === 'true'
-  
-  if (tursoUrl && !useLocalDb) {
-    // 使用 Turso 云数据库
-    console.log('Using Turso cloud database')
-    return createTursoClient({
-      url: tursoUrl,
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    })
-  } else {
-    // 使用本地 SQLite 数据库
-    console.log('Using local SQLite database')
-    return createLocalClient()
-  }
+// 创建 Turso 云数据库客户端
+const tursoUrl = process.env.TURSO_DATABASE_URL
+if (!tursoUrl) {
+  console.warn('TURSO_DATABASE_URL is not set!')
 }
 
-const tursoClient = createDbClient()
+const tursoClient = createTursoClient({
+  url: tursoUrl || '',
+  authToken: process.env.TURSO_AUTH_TOKEN,
+})
 
 // 简单的数据库查询封装
 export const db = {
