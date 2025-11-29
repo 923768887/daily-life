@@ -1,23 +1,16 @@
-import { drizzle } from 'drizzle-orm/libsql'
-import { createClient, type Client } from '@libsql/client/web'
+import { drizzle } from 'drizzle-orm/libsql/web'
 import * as schema from './schema'
 
-// 创建数据库客户端
-let client: Client
+// Turso 云数据库配置
+const dbUrl = process.env.TURSO_DATABASE_URL || 'file:loveday.db'
+const authToken = process.env.TURSO_AUTH_TOKEN
 
-if (process.env.TURSO_DATABASE_URL) {
-  // 生产环境：使用 Turso 云数据库
-  client = createClient({
-    url: process.env.TURSO_DATABASE_URL,
-    authToken: process.env.TURSO_AUTH_TOKEN,
-  })
-} else {
-  // 本地开发：使用本地 SQLite 文件
-  client = createClient({
-    url: 'file:loveday.db',
-  })
-}
-
-export const db = drizzle(client, { schema })
+export const db = drizzle({
+  connection: {
+    url: dbUrl,
+    authToken: authToken,
+  },
+  schema,
+})
 
 export * from './schema'
