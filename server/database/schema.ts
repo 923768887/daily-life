@@ -46,7 +46,7 @@ export const invites = sqliteTable('invites', {
 // 日记表
 export const diaries = sqliteTable('diaries', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  coupleId: integer('couple_id').references(() => couples.id),
+  coupleId: integer('couple_id').notNull().references(() => couples.id),
   userId: integer('user_id').notNull().references(() => users.id),
   title: text('title'),
   content: text('content').notNull(),

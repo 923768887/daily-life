@@ -16,9 +16,7 @@ const diaryId = computed(() => route.params.id as string)
 
 const loading = ref(true)
 const isSubmitting = ref(false)
-const isUploading = ref(false)
 const error = ref('')
-const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const form = ref({
   title: '',
@@ -107,45 +105,9 @@ const handleSubmit = async () => {
 }
 
 const handleImageUpload = () => {
-  fileInputRef.value?.click()
-}
-
-const onFileChange = async (e: Event) => {
-  const input = e.target as HTMLInputElement
-  const files = input.files
-  
-  if (!files || files.length === 0) return
-  
-  if (form.value.images.length + files.length > 9) {
-    alert('最多只能上传9张图片')
-    return
-  }
-
-  isUploading.value = true
-  
-  try {
-    const formData = new FormData()
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i])
-    }
-
-    const response = await authFetch<any>('/api/upload/image', {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (response?.code === 0 && response.data?.urls) {
-      form.value.images.push(...response.data.urls)
-    } else {
-      alert(response?.message || '上传失败')
-    }
-  } catch (error) {
-    console.error('上传失败:', error)
-    alert('上传失败，请重试')
-  } finally {
-    isUploading.value = false
-    input.value = ''
-  }
+  // TODO: 实现图片上传
+  const mockImage = `https://picsum.photos/400/300?random=${Date.now()}`
+  form.value.images.push(mockImage)
 }
 
 const removeImage = (index: number) => {
@@ -263,14 +225,6 @@ const removeImage = (index: number) => {
       <!-- 图片上传 -->
       <div>
         <label class="text-sm font-medium text-foreground mb-2 block">图片</label>
-        <input 
-          ref="fileInputRef"
-          type="file"
-          accept="image/*"
-          multiple
-          class="hidden"
-          @change="onFileChange"
-        />
         <div class="grid grid-cols-3 gap-3">
           <div 
             v-for="(img, idx) in form.images" 
@@ -290,12 +244,10 @@ const removeImage = (index: number) => {
             v-if="form.images.length < 9"
             type="button"
             class="aspect-square rounded-lg border-2 border-dashed border-border hover:border-romantic-pink flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-romantic-pink transition-colors"
-            :disabled="isUploading"
             @click="handleImageUpload"
           >
-            <Icon v-if="isUploading" name="lucide:loader-2" class="w-6 h-6 animate-spin" />
-            <Icon v-else name="lucide:plus" class="w-6 h-6" />
-            <span class="text-xs">{{ isUploading ? '上传中...' : '添加图片' }}</span>
+            <Icon name="lucide:plus" class="w-6 h-6" />
+            <span class="text-xs">添加图片</span>
           </button>
         </div>
       </div>

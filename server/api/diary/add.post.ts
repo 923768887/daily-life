@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     'SELECT * FROM couples WHERE user_id = ? OR partner_id = ? LIMIT 1',
     [userId, userId]
   )
-  const coupleId = (coupleResult.rows[0] as any)?.id || null
+  const coupleId = (coupleResult.rows[0] as any)?.id || 0
 
   const body = await readBody(event)
   const {
@@ -59,8 +59,8 @@ export default defineEventHandler(async (event) => {
 
   // 获取新插入的记录
   const newResult = await db.execute(
-    'SELECT * FROM diaries WHERE user_id = ? ORDER BY id DESC LIMIT 1',
-    [userId]
+    'SELECT * FROM diaries WHERE couple_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1',
+    [coupleId, userId]
   )
 
   return success({

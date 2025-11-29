@@ -179,7 +179,7 @@ export class LocalSqliteClient implements DatabaseClient {
       -- 日记表
       CREATE TABLE IF NOT EXISTS diaries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        couple_id INTEGER,
+        couple_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
         title TEXT,
         content TEXT NOT NULL,
