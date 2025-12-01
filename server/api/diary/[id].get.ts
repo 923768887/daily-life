@@ -56,11 +56,15 @@ export default defineEventHandler(async (event) => {
   )
   const isLiked = !!likedResult.rows[0]
 
-  // 获取评论列表
+  // 获取评论列表（包含回复信息）
   const commentsResult = await db.execute(
-    `SELECT c.*, u.nick_name, u.avatar_url 
+    `SELECT c.*, u.nick_name, u.avatar_url,
+            p.user_id as reply_to_user_id,
+            pu.nick_name as reply_to_nick_name
      FROM comments c 
      LEFT JOIN users u ON c.user_id = u.id 
+     LEFT JOIN comments p ON c.parent_id = p.id
+     LEFT JOIN users pu ON p.user_id = pu.id
      WHERE c.target_type = 'diary' AND c.target_id = ? 
      ORDER BY c.create_time ASC`,
     [diary.id]
@@ -69,12 +73,17 @@ export default defineEventHandler(async (event) => {
   const comments = commentsResult.rows.map((c: any) => ({
     id: c.id,
     content: c.content,
+    parentId: c.parent_id,
     createTime: c.create_time,
     user: {
       id: c.user_id,
       nickName: c.nick_name,
       avatarUrl: c.avatar_url,
     },
+    replyToUser: c.parent_id ? {
+      id: c.reply_to_user_id,
+      nickName: c.reply_to_nick_name,
+    } : null,
   }))
 
   return success({
@@ -89,7 +98,7 @@ export default defineEventHandler(async (event) => {
     images: diary.images ? JSON.parse(diary.images) : [],
     isPrivate: diary.is_private === 1,
     likeCount: diary.like_count || 0,
-    commentCount: diary.comment_count || 0,
+    commentCount: comments.length, // 使用实际评论数量
     diaryDate: diary.diary_date,
     createTime: diary.create_time,
     updateTime: diary.update_time,

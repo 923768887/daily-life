@@ -6,6 +6,7 @@ import { Badge } from '~/components/ui/badge'
 import { Input } from '~/components/ui/input'
 import { moodOptions, weatherOptions, getRelativeTime } from '~/lib/utils'
 import type { ApiResponse } from '~/server/utils/response'
+import { useUserStore } from '~/stores/user'
 
 definePageMeta({
   middleware: 'auth',
@@ -13,6 +14,7 @@ definePageMeta({
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 const diaryId = computed(() => route.params.id as string)
 
 // 加载状态
@@ -21,11 +23,15 @@ const error = ref('')
 const isLiking = ref(false)
 const isCommenting = ref(false)
 const isDeleting = ref(false)
+const isDeletingComment = ref<number | null>(null)
 const showDeleteConfirm = ref(false)
 
 // 日记数据
 const diary = ref<any>(null)
 const comments = ref<any[]>([])
+
+// 回复相关
+const replyTo = ref<{ id: number; nickName: string } | null>(null)
 
 // 获取日记详情
 const fetchDiary = async () => {
@@ -95,6 +101,7 @@ const submitComment = async () => {
       body: { 
         diaryId: diary.value.id,
         content: newComment.value.trim(),
+        parentId: replyTo.value?.id || null,
       },
     })
     
@@ -102,11 +109,48 @@ const submitComment = async () => {
       comments.value.push(response.data)
       diary.value.commentCount = response.data.commentCount
       newComment.value = ''
+      replyTo.value = null
     }
   } catch (e) {
     console.error('评论失败:', e)
   } finally {
     isCommenting.value = false
+  }
+}
+
+// 回复评论
+const handleReply = (comment: any) => {
+  replyTo.value = {
+    id: comment.id,
+    nickName: comment.user.nickName,
+  }
+}
+
+// 取消回复
+const cancelReply = () => {
+  replyTo.value = null
+}
+
+// 删除评论
+const deleteComment = async (commentId: number) => {
+  if (isDeletingComment.value) return
+  isDeletingComment.value = commentId
+  
+  try {
+    const response = await authFetch<ApiResponse<any>>(`/api/diary/comment/${commentId}`, {
+      method: 'DELETE',
+    })
+    
+    if (response?.code === 0) {
+      // 移除评论及其回复
+      comments.value = comments.value.filter(c => c.id !== commentId && c.parentId !== commentId)
+      // 使用后端返回的评论数
+      diary.value.commentCount = response.data.commentCount
+    }
+  } catch (e) {
+    console.error('删除评论失败:', e)
+  } finally {
+    isDeletingComment.value = null
   }
 }
 
@@ -254,16 +298,16 @@ const openImageViewer = (index: number) => {
     </Card>
     </template>
     <!-- 评论区 -->
-    <Card>
+    <Card v-if="diary">
       <CardContent class="p-6 space-y-4">
         <h3 class="font-semibold text-foreground">评论 ({{ comments.length }})</h3>
         
         <!-- 评论列表 -->
-        <div class="space-y-4">
+        <div v-if="comments.length" class="space-y-4">
           <div 
             v-for="comment in comments" 
             :key="comment.id"
-            class="flex gap-3"
+            class="flex gap-3 group"
           >
             <Avatar class="w-8 h-8 shrink-0">
               <AvatarImage :src="comment.user.avatarUrl" />
@@ -271,31 +315,69 @@ const openImageViewer = (index: number) => {
                 {{ comment.user.nickName?.charAt(0) }}
               </AvatarFallback>
             </Avatar>
-            <div class="flex-1">
-              <div class="flex items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-medium text-sm text-foreground">{{ comment.user.nickName }}</span>
+                <!-- 回复标识 -->
+                <template v-if="comment.replyToUser">
+                  <Icon name="lucide:corner-down-right" class="w-3 h-3 text-muted-foreground" />
+                  <span class="text-sm text-romantic-pink">@{{ comment.replyToUser.nickName }}</span>
+                </template>
                 <span class="text-xs text-muted-foreground">{{ getRelativeTime(comment.createTime) }}</span>
               </div>
-              <p class="text-sm text-foreground mt-1">{{ comment.content }}</p>
+              <p class="text-sm text-foreground mt-1 break-words">{{ comment.content }}</p>
+              <!-- 评论操作 -->
+              <div class="flex items-center gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  class="text-xs text-muted-foreground hover:text-romantic-pink transition-colors"
+                  @click="handleReply(comment)"
+                >
+                  回复
+                </button>
+                <button 
+                  v-if="comment.user.id === userStore.userInfo?.id"
+                  class="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  :disabled="isDeletingComment === comment.id"
+                  @click="deleteComment(comment.id)"
+                >
+                  {{ isDeletingComment === comment.id ? '删除中...' : '删除' }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
+        <!-- 暂无评论 -->
+        <div v-else class="text-center py-8 text-muted-foreground">
+          <Icon name="lucide:message-circle" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p>暂无评论，快来抢沙发吧~</p>
+        </div>
+
         <!-- 发表评论 -->
-        <div class="flex items-center gap-2 pt-4 border-t">
-          <Input 
-            v-model="newComment"
-            placeholder="写下你的评论..."
-            class="flex-1"
-            @keyup.enter="submitComment"
-          />
-          <Button 
-            variant="love"
-            :disabled="!newComment.trim()"
-            @click="submitComment"
-          >
-            发送
-          </Button>
+        <div class="pt-4 border-t space-y-2">
+          <!-- 回复提示 -->
+          <div v-if="replyTo" class="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg">
+            <span>回复 <span class="text-romantic-pink">@{{ replyTo.nickName }}</span></span>
+            <button class="ml-auto hover:text-foreground" @click="cancelReply">
+              <Icon name="lucide:x" class="w-4 h-4" />
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <Input 
+              v-model="newComment"
+              :placeholder="replyTo ? `回复 @${replyTo.nickName}...` : '写下你的评论...'"
+              class="flex-1"
+              @keyup.enter="submitComment"
+            />
+            <Button 
+              variant="love"
+              :disabled="!newComment.trim() || isCommenting"
+              @click="submitComment"
+            >
+              <Icon v-if="isCommenting" name="lucide:loader-2" class="w-4 h-4 animate-spin" />
+              {{ isCommenting ? '' : '发送' }}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

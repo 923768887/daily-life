@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
+import CardSkeleton from '~/components/ui/CardSkeleton.vue'
 import LoveCounter from '~/components/love/LoveCounter.vue'
 import CoupleHeader from '~/components/love/CoupleHeader.vue'
 import AnniversaryCard from '~/components/love/AnniversaryCard.vue'

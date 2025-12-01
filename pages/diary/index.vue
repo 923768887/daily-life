@@ -2,6 +2,7 @@
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Badge } from '~/components/ui/badge'
+import CardSkeleton from '~/components/ui/CardSkeleton.vue'
 import DiaryCard from '~/components/diary/DiaryCard.vue'
 import { moodOptions } from '~/lib/utils'
 import type { ApiResponse, PaginatedData } from '~/server/utils/response'

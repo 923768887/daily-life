@@ -35,6 +35,12 @@ export default defineNuxtConfig({
         // 忽略 index.ts 文件，避免组件名称冲突
         ignore: ['**/index.ts'],
       },
+      {
+        path: '~/components/ui',
+        // ui 目录下的组件不加前缀
+        pathPrefix: false,
+        ignore: ['**/index.ts'],
+      },
     ],
   },
 

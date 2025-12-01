@@ -19,7 +19,7 @@ defineProps<{
     <!-- 我的头像 -->
     <div class="flex flex-col items-center gap-2">
       <Avatar class="w-16 h-16 ring-2 ring-romantic-pink ring-offset-2">
-        <AvatarImage :src="myInfo.avatarUrl" :alt="myInfo.nickName" />
+        <AvatarImage v-if="myInfo.avatarUrl" :src="myInfo.avatarUrl" :alt="myInfo.nickName" />
         <AvatarFallback class="bg-romantic-pink text-white text-lg">
           {{ myInfo.nickName?.charAt(0) }}
         </AvatarFallback>
@@ -36,7 +36,7 @@ defineProps<{
     <!-- 对方头像 -->
     <div class="flex flex-col items-center gap-2">
       <Avatar class="w-16 h-16 ring-2 ring-romantic-rose ring-offset-2">
-        <AvatarImage :src="partnerInfo.avatarUrl" :alt="partnerInfo.nickName" />
+        <AvatarImage v-if="partnerInfo.avatarUrl" :src="partnerInfo.avatarUrl" :alt="partnerInfo.nickName" />
         <AvatarFallback class="bg-romantic-rose text-white text-lg">
           {{ partnerInfo.nickName?.charAt(0) }}
         </AvatarFallback>

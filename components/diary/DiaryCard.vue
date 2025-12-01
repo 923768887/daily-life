@@ -50,7 +50,7 @@ const getWeatherEmoji = (weather?: string) => {
       <!-- 作者信息 -->
       <div class="flex items-center gap-3 mb-3">
         <Avatar class="w-10 h-10">
-          <AvatarImage :src="diary.author.avatarUrl" :alt="diary.author.nickName" />
+          <AvatarImage v-if="diary.author.avatarUrl" :src="diary.author.avatarUrl" :alt="diary.author.nickName" />
           <AvatarFallback class="bg-romantic-pink text-white">
             {{ diary.author.nickName?.charAt(0) }}
           </AvatarFallback>

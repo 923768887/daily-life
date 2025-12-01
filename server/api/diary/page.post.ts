@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
   const diaryResult = await db.execute(sql, params)
   const diaryList = diaryResult.rows as any[]
 
-  // 获取作者信息和点赞状态
+  // 获取作者信息、点赞状态和实际评论数
   const result = await Promise.all(
     diaryList.map(async (diary) => {
       const authorResult = await db.execute(
@@ -70,6 +70,13 @@ export default defineEventHandler(async (event) => {
       )
       const liked = likedResult.rows[0]
 
+      // 获取实际评论数
+      const commentCountResult = await db.execute(
+        'SELECT COUNT(*) as count FROM comments WHERE target_type = ? AND target_id = ?',
+        ['diary', diary.id]
+      )
+      const commentCount = (commentCountResult.rows[0] as any)?.count || 0
+
       return {
         id: diary.id,
         title: diary.title,
@@ -79,8 +86,8 @@ export default defineEventHandler(async (event) => {
         location: diary.location,
         images: diary.images ? JSON.parse(diary.images) : [],
         isPrivate: diary.is_private === 1,
-        likeCount: diary.like_count,
-        commentCount: diary.comment_count,
+        likeCount: diary.like_count || 0,
+        commentCount: commentCount,
         diaryDate: diary.diary_date,
         createTime: diary.create_time,
         author: {
