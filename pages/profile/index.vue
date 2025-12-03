@@ -14,7 +14,17 @@ const router = useRouter()
 const userStore = useUserStore()
 
 // 从 API 获取用户数据
-const { data: userData, refresh: refreshUser } = await useAuthFetch<ApiResponse<PaginatedData<any>>>('/api/user/info')
+interface UserDetail {
+  id: number
+  nickName: string
+  avatarUrl: string
+  phone: string
+  birthday: string
+  constellation: string
+  coupleId?: number
+}
+
+const { data: userData, refresh: refreshUser } = await useAuthFetch<ApiResponse<UserDetail>>('/api/user/info')
 const userInfo = computed(() => {
   if (userData.value?.code === 0 && userData.value?.data) {
     return userData.value.data
@@ -23,7 +33,13 @@ const userInfo = computed(() => {
 })
 
 // 从 API 获取情侣数据
-const { data: coupleData } = await useAuthFetch<ApiResponse<PaginatedData<any>>>('/api/couple/info')
+interface CoupleDetail {
+  loveDays: number
+  loveStartDate: string
+  partnerInfo: { nickName: string; avatarUrl?: string }
+}
+
+const { data: coupleData } = await useAuthFetch<ApiResponse<CoupleDetail>>('/api/couple/info')
 const coupleInfo = computed(() => {
   if (coupleData.value?.code === 0 && coupleData.value?.data) {
     return coupleData.value.data
@@ -51,7 +67,7 @@ const badges = ref([
 ])
 
 const menuItems = [
-  { icon: 'lucide:heart', label: '情侣档案', path: '/couple/pair' },
+  { icon: 'lucide:heart', label: '情侣档案', path: '/profile/couple' },
   { icon: 'lucide:user', label: '个人资料', path: '/profile/info' },
   { icon: 'lucide:calendar-check', label: '今日任务', path: '/task' },
   { icon: 'lucide:bell', label: '消息通知', path: '/profile/notifications' },

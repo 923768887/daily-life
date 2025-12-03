@@ -126,7 +126,7 @@ const goBack = () => {
           <div class="flex items-center justify-center gap-4">
             <div class="text-center">
               <Avatar class="w-20 h-20 mx-auto ring-2 ring-romantic-pink">
-                <AvatarImage :src="coupleInfo?.myInfo?.avatarUrl" />
+                <AvatarImage v-if="coupleInfo?.myInfo?.avatarUrl" :src="coupleInfo?.myInfo?.avatarUrl" />
                 <AvatarFallback class="bg-romantic-pink text-white text-xl">
                   {{ coupleInfo?.myInfo?.nickName?.charAt(0) }}
                 </AvatarFallback>
@@ -142,7 +142,7 @@ const goBack = () => {
             
             <div class="text-center">
               <Avatar class="w-20 h-20 mx-auto ring-2 ring-romantic-rose">
-                <AvatarImage :src="coupleInfo?.partnerInfo?.avatarUrl" />
+                <AvatarImage v-if="coupleInfo?.myInfo?.avatarUrl"  :src="coupleInfo?.partnerInfo?.avatarUrl" />
                 <AvatarFallback class="bg-romantic-rose text-white text-xl">
                   {{ coupleInfo?.partnerInfo?.nickName?.charAt(0) }}
                 </AvatarFallback>

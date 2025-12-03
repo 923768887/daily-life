@@ -61,5 +61,10 @@ export function paginated<T>(
 }
 
 export function formatDateTime(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').substring(0, 19)
+  return toBeijingTime(date).replace('T', ' ').substring(0, 19)
+}
+
+export function toBeijingTime(date: Date = new Date()): string {
+  const utc8Timestamp = date.getTime() + 8 * 60 * 60 * 1000
+  return new Date(utc8Timestamp).toISOString()
 }

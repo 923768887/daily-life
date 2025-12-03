@@ -4,6 +4,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Avatar, AvatarImage, AvatarFallback } from '~/components/ui/avatar'
 import { useUserStore } from '~/stores/user'
+import { authFetch } from '~/composables/useAuthFetch'
 import type { ApiResponse } from '~/server/utils/response'
 
 definePageMeta({
@@ -33,37 +34,52 @@ const specialMessages: Record<string, { icon: string; text: string }> = {
   kiss: { icon: '😘', text: '亲亲你' },
 }
 
+const POLL_INTERVAL = 5000
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
 // 获取消息列表
-const fetchMessages = async (beforeId?: number) => {
+const fetchMessages = async (beforeId?: number, options: { silent?: boolean } = {}) => {
+  const { silent = false } = options
   if (beforeId) {
     loadingMore.value = true
-  } else {
+  } else if (!silent) {
     loading.value = true
   }
   error.value = ''
 
   try {
-    const query = beforeId ? `?beforeId=${beforeId}&limit=50` : '?limit=50'
-    const { data } = await useAuthFetch<ApiResponse<any>>(`/api/message/list${query}`)
+    const params = new URLSearchParams({ limit: '50' })
+    if (beforeId) {
+      params.set('beforeId', String(beforeId))
+    }
+    const response = await authFetch<ApiResponse<any>>(`/api/message/list?${params.toString()}`)
     
-    if (data.value?.code === 0) {
+    if (response?.code === 0) {
+      const prevLastId = messages.value[messages.value.length - 1]?.id
       if (beforeId) {
-        // 加载更多，插入到前面
-        messages.value = [...data.value.data.messages, ...messages.value]
+        messages.value = [...response.data.messages, ...messages.value]
       } else {
-        messages.value = data.value.data.messages
-        partnerInfo.value = data.value.data.partner
+        messages.value = response.data.messages
+        partnerInfo.value = response.data.partner
       }
-      hasMore.value = data.value.data.hasMore
+      hasMore.value = response.data.hasMore
+
+      const newLastId = messages.value[messages.value.length - 1]?.id
+      return !beforeId && silent && newLastId && newLastId !== prevLastId
     } else {
-      error.value = data.value?.message || '加载失败'
+      error.value = response?.message || '加载失败'
     }
   } catch (e: any) {
     error.value = e.message || '加载失败'
   } finally {
-    loading.value = false
-    loadingMore.value = false
+    if (beforeId) {
+      loadingMore.value = false
+    } else if (!silent) {
+      loading.value = false
+    }
   }
+
+  return false
 }
 
 // 初始加载
@@ -78,9 +94,31 @@ const scrollToBottom = () => {
   })
 }
 
-// 初始滚动到底部
+const startPolling = () => {
+  if (pollTimer) return
+  pollTimer = setInterval(async () => {
+    const updated = await fetchMessages(undefined, { silent: true })
+    if (updated) {
+      scrollToBottom()
+    }
+  }, POLL_INTERVAL)
+}
+
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+// 初始滚动到底部并开始轮询
 onMounted(() => {
   scrollToBottom()
+  startPolling()
+})
+
+onBeforeUnmount(() => {
+  stopPolling()
 })
 
 const formatTime = (time: string) => {
