@@ -3,6 +3,8 @@ import { Card, CardContent } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Textarea } from '~/components/ui/textarea'
+import { authFetch } from '~/composables/useAuthFetch'
+import type { ApiResponse } from '~/server/utils/response'
 
 const router = useRouter()
 
@@ -58,11 +60,30 @@ const handleSubmit = async () => {
 
   isSubmitting.value = true
   
+  const payload = {
+    title: form.value.title.trim(),
+    description: form.value.description?.trim() || '',
+    category: form.value.category,
+    startDate: form.value.startDate,
+    startTime: form.value.startTime,
+    endDate: form.value.endDate,
+    endTime: form.value.endTime,
+    isAllDay: form.value.isAllDay,
+    location: form.value.location?.trim() || '',
+    color: form.value.color,
+  }
+
   try {
-    // TODO: 调用 API 保存日程
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    router.push('/schedule')
+    const response = await authFetch<ApiResponse<any>>('/api/schedule/add', {
+      method: 'POST',
+      body: payload,
+    })
+
+    if (response?.code === 0) {
+      router.push('/schedule')
+    } else {
+      alert(response?.message || '保存失败，请重试')
+    }
   } catch (error) {
     console.error('保存失败:', error)
     alert('保存失败，请重试')
