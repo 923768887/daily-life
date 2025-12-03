@@ -2,46 +2,49 @@
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
+import type { ApiResponse } from '~/server/utils/response'
 
-// 模拟日程数据
-const schedules = ref([
-  {
-    id: 1,
-    title: '情人节约会',
-    description: '去看电影，然后吃晚餐',
-    category: 'date',
-    startTime: '2024-02-14 18:00:00',
-    endTime: '2024-02-14 22:00:00',
-    location: '万达影城',
-    color: '#FF6B9D',
-    status: 1,
-  },
-  {
-    id: 2,
-    title: '小宝贝生日',
-    description: '准备惊喜派对',
-    category: 'birthday',
-    startTime: '2024-06-15 00:00:00',
-    endTime: '2024-06-15 23:59:59',
-    location: '',
-    color: '#FFD700',
-    status: 0,
-  },
-  {
-    id: 3,
-    title: '周末旅行',
-    description: '去杭州西湖',
-    category: 'travel',
-    startTime: '2024-03-01 08:00:00',
-    endTime: '2024-03-03 20:00:00',
-    location: '杭州',
-    color: '#4CAF50',
-    status: 0,
-  },
-])
+definePageMeta({
+  middleware: 'auth',
+})
 
+const router = useRouter()
+
+// 状态
+const loading = ref(true)
+const error = ref('')
+const schedules = ref<any[]>([])
 const viewMode = ref<'list' | 'calendar'>('list')
 const currentMonth = ref(new Date())
+
+// 获取日程列表
+const fetchSchedules = async () => {
+  loading.value = true
+  error.value = ''
+  
+  try {
+    const month = `${currentMonth.value.getFullYear()}-${String(currentMonth.value.getMonth() + 1).padStart(2, '0')}`
+    const { data } = await useAuthFetch<ApiResponse<any[]>>(`/api/schedule/list?month=${month}`)
+    
+    if (data.value?.code === 0) {
+      schedules.value = data.value.data || []
+    } else {
+      error.value = data.value?.message || '加载失败'
+    }
+  } catch (e: any) {
+    error.value = e.message || '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+// 初始加载
+await fetchSchedules()
+
+// 监听月份变化
+watch(currentMonth, () => {
+  fetchSchedules()
+})
 
 const categoryLabels: Record<string, string> = {
   date: '约会',
@@ -109,6 +112,48 @@ const isToday = (date: Date) => {
   const today = new Date()
   return date.toDateString() === today.toDateString()
 }
+
+// 更新日程状态
+const updateStatus = async (scheduleId: number, status: number) => {
+  try {
+    const response = await authFetch<ApiResponse<any>>('/api/schedule/status', {
+      method: 'PUT',
+      body: { id: scheduleId, status },
+    })
+    
+    if (response?.code === 0) {
+      // 更新本地状态
+      const schedule = schedules.value.find(s => s.id === scheduleId)
+      if (schedule) {
+        schedule.status = status
+      }
+    }
+  } catch (e) {
+    console.error('更新状态失败:', e)
+  }
+}
+
+// 删除日程
+const deleteSchedule = async (scheduleId: number) => {
+  if (!confirm('确定要删除这个日程吗？')) return
+  
+  try {
+    const response = await authFetch<ApiResponse<any>>(`/api/schedule/${scheduleId}`, {
+      method: 'DELETE',
+    })
+    
+    if (response?.code === 0) {
+      schedules.value = schedules.value.filter(s => s.id !== scheduleId)
+    }
+  } catch (e) {
+    console.error('删除失败:', e)
+  }
+}
+
+// 编辑日程
+const editSchedule = (scheduleId: number) => {
+  router.push(`/schedule/edit/${scheduleId}`)
+}
 </script>
 
 <template>
@@ -147,8 +192,20 @@ const isToday = (date: Date) => {
       </button>
     </div>
 
+    <!-- 加载状态 -->
+    <div v-if="loading" class="flex items-center justify-center py-12">
+      <Icon name="lucide:loader-2" class="w-8 h-8 animate-spin text-romantic-pink" />
+    </div>
+
+    <!-- 错误状态 -->
+    <div v-else-if="error" class="text-center py-12">
+      <Icon name="lucide:alert-circle" class="w-12 h-12 text-destructive/60 mx-auto mb-4" />
+      <p class="text-muted-foreground mb-4">{{ error }}</p>
+      <Button variant="outline" @click="fetchSchedules">重试</Button>
+    </div>
+
     <!-- 列表视图 -->
-    <div v-if="viewMode === 'list'" class="space-y-3">
+    <div v-else-if="viewMode === 'list'" class="space-y-3">
       <Card 
         v-for="schedule in schedules" 
         :key="schedule.id"
@@ -163,8 +220,8 @@ const isToday = (date: Date) => {
             <div class="flex-1">
               <div class="flex items-center gap-2 mb-1">
                 <h3 class="font-semibold text-foreground">{{ schedule.title }}</h3>
-                <Badge :variant="statusLabels[schedule.status].variant">
-                  {{ statusLabels[schedule.status].label }}
+                <Badge :variant="statusLabels[schedule.status]?.variant || 'outline'">
+                  {{ statusLabels[schedule.status]?.label || '未知' }}
                 </Badge>
               </div>
               <p v-if="schedule.description" class="text-sm text-muted-foreground mb-2">
@@ -179,15 +236,46 @@ const isToday = (date: Date) => {
                   <Icon name="lucide:map-pin" class="w-4 h-4" />
                   {{ schedule.location }}
                 </span>
-                <Badge variant="outline">{{ categoryLabels[schedule.category] }}</Badge>
+                <Badge variant="outline">{{ categoryLabels[schedule.category] || '其他' }}</Badge>
               </div>
             </div>
             <div class="flex items-center gap-1">
-              <Button variant="ghost" size="icon">
-                <Icon name="lucide:check" class="w-4 h-4" />
+              <!-- 确认/完成按钮 -->
+              <Button 
+                v-if="schedule.status === 0"
+                variant="ghost" 
+                size="icon"
+                title="确认日程"
+                @click="updateStatus(schedule.id, 1)"
+              >
+                <Icon name="lucide:check" class="w-4 h-4 text-green-500" />
               </Button>
-              <Button variant="ghost" size="icon">
+              <Button 
+                v-else-if="schedule.status === 1"
+                variant="ghost" 
+                size="icon"
+                title="标记完成"
+                @click="updateStatus(schedule.id, 2)"
+              >
+                <Icon name="lucide:check-check" class="w-4 h-4 text-green-500" />
+              </Button>
+              <!-- 编辑按钮 -->
+              <Button 
+                variant="ghost" 
+                size="icon"
+                title="编辑"
+                @click="editSchedule(schedule.id)"
+              >
                 <Icon name="lucide:pencil" class="w-4 h-4" />
+              </Button>
+              <!-- 删除按钮 -->
+              <Button 
+                variant="ghost" 
+                size="icon"
+                title="删除"
+                @click="deleteSchedule(schedule.id)"
+              >
+                <Icon name="lucide:trash-2" class="w-4 h-4 text-destructive" />
               </Button>
             </div>
           </div>
@@ -196,7 +284,7 @@ const isToday = (date: Date) => {
 
       <div v-if="!schedules.length" class="text-center py-12">
         <div class="text-6xl mb-4">📅</div>
-        <p class="text-muted-foreground mb-4">还没有日程安排</p>
+        <p class="text-muted-foreground mb-4">本月还没有日程安排</p>
         <NuxtLink to="/schedule/new">
           <Button variant="love">添加第一个日程</Button>
         </NuxtLink>

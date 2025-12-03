@@ -42,9 +42,23 @@ const handleEdit = (id: number) => {
 }
 
 const handleDelete = async (id: number) => {
-  if (confirm('确定要删除这个纪念日吗？')) {
-    // TODO: 调用删除 API
-    await refresh()
+  if (!confirm('确定要删除这个纪念日吗？')) {
+    return
+  }
+
+  try {
+    const response = await authFetch<ApiResponse<any>>(`/api/anniversary/${id}`, {
+      method: 'DELETE',
+    })
+
+    if (response?.code === 0) {
+      await refresh()
+    } else {
+      alert(response?.message || '删除失败，请重试')
+    }
+  } catch (error) {
+    console.error('删除纪念日失败:', error)
+    alert('删除失败，请重试')
   }
 }
 </script>
