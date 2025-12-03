@@ -120,6 +120,29 @@ nuxt-daily-life/
 - [ ] 任务系统
 - [ ] 数据统计
 
+## 仓库说明（Gitee + GitHub 双远程）
+
+本项目采用「Gitee 为主仓库，GitHub 为镜像」的工作流：
+
+- 主仓库（国内开发、CI 优先使用）  
+  - Gitee：`https://gitee.com/FengYe_Li/daily-life.git`
+  - 远程名：`origin`
+
+- 镜像仓库（给 GitHub / Vercel / 开源使用）  
+  - GitHub：`https://github.com/923768887/daily-life.git`
+  - 远程名：`github`
+
+### 本地远程配置
+
+```bash
+# 查看当前远程
+git remote -v
+# 期望看到：
+# origin  [https://gitee.com/FengYe_Li/daily-life.git](https://gitee.com/FengYe_Li/daily-life.git) (fetch)
+# origin  [https://gitee.com/FengYe_Li/daily-life.git](https://gitee.com/FengYe_Li/daily-life.git) (push)
+# github  [https://github.com/923768887/daily-life.git](https://github.com/923768887/daily-life.git) (fetch)
+# github  [https://github.com/923768887/daily-life.git](https://github.com/923768887/daily-life.git) (push)
+
 ## 许可证
 
 MIT License

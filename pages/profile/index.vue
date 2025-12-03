@@ -3,14 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '~/components/ui/avatar'
 import { Badge } from '~/components/ui/badge'
+import { useUserStore } from '~/stores/user'
 import type { ApiResponse, PaginatedData } from '~/server/utils/response'
 
 definePageMeta({
   middleware: 'auth',
 })
 
+const router = useRouter()
+const userStore = useUserStore()
+
 // 从 API 获取用户数据
-const { data: userData } = await useAuthFetch<ApiResponse<PaginatedData<any>>>('/api/user/info')
+const { data: userData, refresh: refreshUser } = await useAuthFetch<ApiResponse<PaginatedData<any>>>('/api/user/info')
 const userInfo = computed(() => {
   if (userData.value?.code === 0 && userData.value?.data) {
     return userData.value.data
@@ -27,13 +31,19 @@ const coupleInfo = computed(() => {
   return { loveDays: 0, loveStartDate: '', partnerInfo: { nickName: '' } }
 })
 
-// 统计数据（暂时使用模拟数据，后续可添加统计 API）
-const statistics = ref({
-  diaryCount: 0,
-  photoCount: 0,
-  anniversaryCount: 0,
-  checkInDays: 0,
-  totalPoints: 0,
+// 从 API 获取统计数据
+const { data: statsData } = await useAuthFetch<ApiResponse<any>>('/api/user/stats')
+const statistics = computed(() => {
+  if (statsData.value?.code === 0 && statsData.value?.data) {
+    return statsData.value.data
+  }
+  return {
+    diaryCount: 0,
+    photoCount: 0,
+    anniversaryCount: 0,
+    checkInDays: 0,
+    totalPoints: 0,
+  }
 })
 
 const badges = ref([
@@ -41,15 +51,26 @@ const badges = ref([
 ])
 
 const menuItems = [
-  { icon: 'lucide:heart', label: '情侣档案', path: '/profile/couple' },
+  { icon: 'lucide:heart', label: '情侣档案', path: '/couple/pair' },
   { icon: 'lucide:user', label: '个人资料', path: '/profile/info' },
+  { icon: 'lucide:calendar-check', label: '今日任务', path: '/task' },
   { icon: 'lucide:bell', label: '消息通知', path: '/profile/notifications' },
-  { icon: 'lucide:shield', label: '隐私设置', path: '/profile/privacy' },
-  { icon: 'lucide:palette', label: '主题设置', path: '/profile/theme' },
-  { icon: 'lucide:download', label: '数据备份', path: '/profile/backup' },
   { icon: 'lucide:help-circle', label: '帮助与反馈', path: '/profile/help' },
   { icon: 'lucide:info', label: '关于我们', path: '/profile/about' },
 ]
+
+// 退出登录
+const handleLogout = () => {
+  if (confirm('确定要退出登录吗？')) {
+    userStore.logout()
+    router.replace('/login')
+  }
+}
+
+// 页面激活时刷新数据
+onActivated(() => {
+  refreshUser()
+})
 </script>
 
 <template>
@@ -60,7 +81,7 @@ const menuItems = [
       <CardContent class="relative pt-0 pb-6">
         <div class="flex flex-col items-center -mt-12">
           <Avatar class="w-24 h-24 ring-4 ring-white">
-            <AvatarImage :src="userInfo.avatarUrl" :alt="userInfo.nickName" />
+            <AvatarImage v-if="userInfo.avatarUrl" :src="userInfo.avatarUrl" :alt="userInfo.nickName" />
             <AvatarFallback class="bg-romantic-pink text-white text-2xl">
               {{ userInfo.nickName?.charAt(0) }}
             </AvatarFallback>
@@ -71,7 +92,7 @@ const menuItems = [
           <!-- 情侣信息 - 已配对 -->
           <div v-if="coupleInfo.loveDays > 0" class="flex items-center gap-3 mt-4 px-4 py-2 bg-romantic-blush rounded-full">
             <Avatar class="w-8 h-8">
-              <AvatarImage :src="coupleInfo.partnerInfo?.avatarUrl" />
+              <AvatarImage v-if="coupleInfo.partnerInfo?.avatarUrl" :src="coupleInfo.partnerInfo?.avatarUrl" />
               <AvatarFallback class="bg-romantic-rose text-white text-sm">
                 {{ coupleInfo.partnerInfo?.nickName?.charAt(0) || '?' }}
               </AvatarFallback>
@@ -170,7 +191,11 @@ const menuItems = [
     </Card>
 
     <!-- 退出登录 -->
-    <Button variant="outline" class="w-full text-destructive hover:text-destructive">
+    <Button 
+      variant="outline" 
+      class="w-full text-destructive hover:text-destructive"
+      @click="handleLogout"
+    >
       <Icon name="lucide:log-out" class="w-4 h-4" />
       退出登录
     </Button>

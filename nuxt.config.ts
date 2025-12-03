@@ -78,6 +78,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    preset: 'vercel',   // 或 'vercel-edge'，先用 'vercel' 更稳
     experimental: {
       asyncContext: true,
     },
